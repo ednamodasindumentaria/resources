@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Leaflet con Choices.js</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .dropdown-container {
+            margin-bottom: 20px;
+        }
+
+        #map {
+            width: 100%;
+            height: 450px;
+            display: none;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+			z-index: 1;
+        }
+
+        #loader {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+            margin: 20px 0;
+        }
+		.choices__list, choices__item, choices__list--dropdown, is-active {
+		z-index: 1050 !important; /* Ajustá este valor según sea necesario */
+		}
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+			margin-top: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+			width: 100%;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Seleccioná una Sucursal</h1>
+<div style="
+    padding: 20px; 
+    background: #f9f9f9; 
+    color: #333; 
+    border: 1px solid #e0e0e0; 
+    border-radius: 12px; 
+    font-family: 'Arial', sans-serif; 
+    font-size: 16px; 
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+    margin: 20px auto; 
+    line-height: 1.5;
+">
+    ✨<strong style="color: #d81b60; font-size: 18px;">¡Holis!</strong>✨ <br /> 
+	Acá vas a poder elegir la sucursal de correo para que enviemos tu pedido de <strong>Edna Modas</strong>. <br /> 
+    Recordá que, una vez que tu pedido llegue a sucursal, <strong>tenés 5 días hábiles para retirarlo.</strong> <br /> 
+	<strong style="color: #d81b60;">¡Muchas gracias!</strong>
+</div>
+
+
+    <!-- Loader -->
+    <div id="loader">Cargando sucursales...</div>
+
+    <!-- Dropdowns -->
+    <div class="dropdown-container" style='display:none;' id="provincia-container">
+        <label for="codProvincia">Provincia:</label>
+        <select id="codProvincia" disabled></select>
+    </div>
+
+    <div class="dropdown-container" style='display:none;' id="localidad-container">
+        <label for="localidad">Localidad:</label>
+        <select id="localidad" disabled></select>
+    </div>
+
+    <div class="dropdown-container" style='display:none;' id="sucursal-container">
+        <label for="sucursal">Sucursal:</label>
+        <select id="sucursal" disabled></select>
+    </div>
+
+    <!-- Mapa -->
+    <div id="map"></div>
+	
+	<!-- Botón Guardar -->
+    <button id="guardarSeleccion" disabled>Guardar Selección</button>
+
+
+    <script>
+        const provincias = {
+            A: 'SALTA',
+            B: 'BUENOS AIRES',
+            C: 'CAPITAL FEDERAL',
+            D: 'SAN LUIS',
+            E: 'ENTRE RIOS',
+            F: 'LA RIOJA',
+            G: 'SANTIAGO DEL ESTERO',
+            H: 'CHACO',
+            J: 'SAN JUAN',
+            K: 'CATAMARCA',
+            L: 'LA PAMPA',
+            M: 'MENDOZA',
+            N: 'MISIONES',
+            P: 'FORMOSA',
+            Q: 'NEUQUEN',
+            R: 'RIO NEGRO',
+            S: 'SANTA FE',
+            T: 'TUCUMAN',
+            U: 'CHUBUT',
+            V: 'TIERRA DEL FUEGO',
+            W: 'CORRIENTES',
+            X: 'CORDOBA',
+            Y: 'JUJUY',
+            Z: 'SANTA CRUZ'
+        };
+
+        const codProvinciaDropdown = document.getElementById('codProvincia');
+        const localidadDropdown = document.getElementById('localidad');
+        const sucursalDropdown = document.getElementById('sucursal');
+        const guardarSeleccionBtn = document.getElementById('guardarSeleccion');
+        const mapContainer = document.getElementById('map');
+		const localidadContainer = document.getElementById('localidad-container');
+		const sucursalContainer = document.getElementById('sucursal-container');
+		const provinciaContainer = document.getElementById('provincia-container');
+        const loader = document.getElementById('loader');
+        let map, marker, resultadoAgrupado;
+
+        let provinciaChoices, localidadChoices, sucursalChoices;
+
+        // Inicializar Choices.js
+        function initChoices(dropdown, placeholder) {
+            if (dropdown.choices) dropdown.choices.destroy();
+            dropdown.choices = new Choices(dropdown, {
+                searchPlaceholderValue: `Filtrar ${placeholder}...`,
+				itemSelectText: 'Seleccionar esta opción',
+                shouldSort: false
+            });
+        }
+
+        // Inicializar el dropdown de provincias
+        function initProvincias() {
+            codProvinciaDropdown.innerHTML = '<option value="">Seleccionar Provincia</option>';
+            Object.entries(provincias).forEach(([codProv, nombre]) => {
+                const option = document.createElement('option');
+                option.value = codProv;
+                option.textContent = nombre;
+                codProvinciaDropdown.appendChild(option);
+            });
+            initChoices(codProvinciaDropdown, 'Provincias');
+        }
+
+        // Fetch para cargar el JSON agrupado
+        fetch('https://requestly.tech/api/mockv2/sucursales-correo.json.json?username=user1733254273339')
+            .then(response => response.json())
+            .then(data => {
+                resultadoAgrupado = data;
+				provinciaContainer.style.display = 'block';
+                loader.style.display = 'none';
+                codProvinciaDropdown.disabled = false;
+                initProvincias();
+            })
+            .catch(error => {
+                console.error('Error cargando el JSON:', error);
+                loader.textContent = 'Error cargando sucursales';
+            });
+
+        // Reset y deshabilitar dropdowns dependientes
+        function resetDropdown(dropdown, placeholder) {
+            dropdown.innerHTML = `<option value="">Seleccionar ${placeholder}</option>`;
+            dropdown.disabled = true;
+            initChoices(dropdown, placeholder);
+        }
+
+        // Manejo de eventos
+        codProvinciaDropdown.addEventListener('change', () => {
+            const codProv = codProvinciaDropdown.value;
+            resetDropdown(localidadDropdown, 'Localidad');
+            resetDropdown(sucursalDropdown, 'Sucursal');
+            mapContainer.style.display = 'none';
+            guardarSeleccionBtn.disabled = true;
+
+            if (codProv && resultadoAgrupado[codProv]) {
+                const localidades = resultadoAgrupado[codProv];
+                localidades.forEach(loc => {
+                    const option = document.createElement('option');
+                    option.value = loc.localidad;
+                    option.textContent = loc.localidad;
+                    localidadDropdown.appendChild(option);
+                });
+                localidadDropdown.disabled = false;
+                initChoices(localidadDropdown, 'Localidades');
+				
+				sucursalContainer.style.display = 'block';
+				localidadContainer.style.display = 'block';
+            }
+			
+        });
+
+        localidadDropdown.addEventListener('change', () => {
+            const codProv = codProvinciaDropdown.value;
+            const localidad = localidadDropdown.value;
+
+            resetDropdown(sucursalDropdown, 'Sucursal');
+            mapContainer.style.display = 'none';
+            guardarSeleccionBtn.disabled = true;
+
+            if (localidad) {
+                const sucursales = resultadoAgrupado[codProv].find(loc => loc.localidad === localidad).sucursales;
+                sucursales.forEach(suc => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(suc);
+                    option.textContent = `${suc.descripcion} (${suc.domicilio})`;
+                    sucursalDropdown.appendChild(option);
+                });
+                sucursalDropdown.disabled = false;
+                initChoices(sucursalDropdown, 'Sucursales');
+            }
+        });
+
+        sucursalDropdown.addEventListener('change', () => {
+            const sucursal = JSON.parse(sucursalDropdown.value);
+            if (sucursal.latitud && sucursal.longitud) {
+                initMap(sucursal.latitud, sucursal.longitud, sucursal.descripcion, sucursal.domicilio);
+                guardarSeleccionBtn.disabled = false;
+            } else {
+                mapContainer.style.display = 'none';
+                guardarSeleccionBtn.disabled = true;
+            }
+        });
+
+        guardarSeleccionBtn.addEventListener('click', () => {
+            const sucursal = JSON.parse(sucursalDropdown.value);
+            alert(`Sucursal seleccionada: ${sucursal.descripcion} - ${sucursal.codPlanta}`);
+            console.log('Sucursal guardada:', sucursal);
+        });
+
+        function initMap(lat, lng, descripcion, domicilio) {
+            if (!map) {
+                map = L.map('map').setView([lat, lng], 15);
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    maxZoom: 19
+                }).addTo(map);
+            } else {
+                map.setView([lat, lng], 15);
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+            }
+
+            marker = L.marker([lat, lng]).addTo(map)
+                .bindPopup(`<strong>${descripcion}</strong><br>${domicilio}`);
+
+            setTimeout(() => {
+                map.invalidateSize();
+                marker.openPopup();
+            }, 0);
+			
+            mapContainer.style.display = 'block';
+			
+			window.scrollTo({
+			top: document.body.scrollHeight,
+			behavior: 'smooth'
+			});
+
+        }
+    </script>
+</body>
+</html>
