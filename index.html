@@ -54,9 +54,10 @@
         padding: 10px 20px;
         font-size: 16px;
         margin-top: 10px;
-        background-color: #007BFF;
+        background-color: #9d5cb9;
         color: white;
         border: none;
+        height: 55px;
         width: 100%;
         border-radius: 5px;
         cursor: pointer;
@@ -69,7 +70,11 @@
     </style>
   </head>
   <body>
-    <div style="
+    <!-- Loader -->
+    <div id="loader">Cargando sucursales...</div>
+    <!-- Dropdowns -->
+    <div id="main-container" style="display:none;">
+      <div style="
     padding: 20px; 
     background: #f9f9f9; 
     color: #333; 
@@ -81,28 +86,27 @@
     margin: 20px auto; 
     line-height: 1.5;
 "> ✨ <strong style="color: #d81b60; font-size: 18px;">¡Holis!</strong>✨ <br /> Acá vas a poder elegir la sucursal de correo para que enviemos tu pedido de <strong>Edna Modas</strong>. <br /> Recordá que, una vez que tu pedido llegue a sucursal, <strong>tenés 5 días hábiles para retirarlo.</strong>
-      <br />
-      <strong style="color: #d81b60;">¡Muchas gracias!</strong>
+        <br />
+        <strong style="color: #d81b60;">¡Muchas gracias!</strong>
+      </div>
+      <div class="dropdown-container" style='display:none;' id="provincia-container">
+        <label for="codProvincia">Provincia:</label>
+        <select id="codProvincia" disabled></select>
+      </div>
+      <div class="dropdown-container" style='display:none;' id="localidad-container">
+        <label for="localidad">Localidad:</label>
+        <select id="localidad" disabled></select>
+      </div>
+      <div class="dropdown-container" style='display:none;' id="sucursal-container">
+        <label for="sucursal">Sucursal:</label>
+        <select id="sucursal" disabled></select>
+      </div>
+      <!-- Mapa -->
+      <div id="map"></div>
+      <!-- Botón Guardar -->
+      <button id="guardarSeleccion" disabled>Confirmar Sucursal</button>
     </div>
-    <!-- Loader -->
-    <div id="loader">Cargando sucursales...</div>
-    <!-- Dropdowns -->
-    <div class="dropdown-container" style='display:none;' id="provincia-container">
-      <label for="codProvincia">Provincia:</label>
-      <select id="codProvincia" disabled></select>
-    </div>
-    <div class="dropdown-container" style='display:none;' id="localidad-container">
-      <label for="localidad">Localidad:</label>
-      <select id="localidad" disabled></select>
-    </div>
-    <div class="dropdown-container" style='display:none;' id="sucursal-container">
-      <label for="sucursal">Sucursal:</label>
-      <select id="sucursal" disabled></select>
-    </div>
-    <!-- Mapa -->
-    <div id="map"></div>
-    <!-- Botón Guardar -->
-    <button id="guardarSeleccion" disabled>Guardar Selección</button>
+    <div id="result-container" style="display:none;"> guardado loko </div>
     <script>
       const provincias = {
         A: 'SALTA',
@@ -136,11 +140,14 @@
       const guardarSeleccionBtn = document.getElementById('guardarSeleccion');
       const mapContainer = document.getElementById('map');
       const localidadContainer = document.getElementById('localidad-container');
+      const mainContainer = document.getElementById('main-container');
+      const resultContainer = document.getElementById('result-container');
       const sucursalContainer = document.getElementById('sucursal-container');
       const provinciaContainer = document.getElementById('provincia-container');
       const loader = document.getElementById('loader');
       let map, marker, resultadoAgrupado;
       let message;
+      let contextDataFromParent;
       let provinciaChoices, localidadChoices, sucursalChoices;
       // Inicializar Choices.js
       function initChoices(dropdown, placeholder) {
@@ -153,7 +160,7 @@
       }
       // Inicializar el dropdown de provincias
       function initProvincias() {
-        codProvinciaDropdown.innerHTML = ' < option value = "" > Seleccionar Provincia < /option>';
+        codProvinciaDropdown.innerHTML = ' <option value=""> Seleccionar Provincia </option>';
         Object.entries(provincias).forEach(([codProv, nombre]) => {
           const option = document.createElement('option');
           option.value = codProv;
@@ -168,6 +175,7 @@
         provinciaContainer.style.display = 'block';
         loader.style.display = 'none';
         codProvinciaDropdown.disabled = false;
+        mainContainer.style.display = 'block';
         initProvincias();
       }).catch(error => {
         console.error('Error cargando el JSON:', error);
@@ -176,6 +184,8 @@
       // Reset y deshabilitar dropdowns dependientes
       function resetDropdown(dropdown, placeholder) {
         dropdown.innerHTML = `
+					
+					
 					<option value="">Seleccionar ${placeholder}</option>`;
         dropdown.disabled = true;
         initChoices(dropdown, placeholder);
@@ -231,8 +241,9 @@
       });
       guardarSeleccionBtn.addEventListener('click', () => {
         const sucursal = JSON.parse(sucursalDropdown.value);
-        alert(`Sucursal seleccionada: ${sucursal.descripcion} - ${sucursal.codPlanta}`);
         console.log('Sucursal guardada:', sucursal);
+        mainContainer.style.display = 'none';
+        resultContainer.style.display = 'block';
       });
 
       function initMap(lat, lng, descripcion, domicilio) {
@@ -248,6 +259,8 @@
           }
         }
         marker = L.marker([lat, lng]).addTo(map).bindPopup(`
+					
+					
 					<strong>${descripcion}</strong>
 					<br>${domicilio}`);
         setTimeout(() => {
@@ -261,9 +274,10 @@
         });
       }
       window.addEventListener('message', (event) => {
-        message = event.data;
-        if (message.id === 'parent_to_iframe') {
-          console.log('Mensaje recibido del parent:', message);
+        message = event?.data;
+        if (message?.id === 'parent_to_iframe') {
+          contextDataFromParent = message;
+          console.log('Mensaje recibido del parent:', contextDataFromParent);
         }
       });
     </script>
