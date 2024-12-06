@@ -249,12 +249,13 @@
       guardarSeleccionBtn.addEventListener('click', () => {
         const sucursal = JSON.parse(sucursalDropdown.value);
         console.log('Sucursal guardada:', sucursal);
+	console.log('contextDataFromParent guardada:', contextDataFromParent);
 	window.parent.postMessage(
     {
         id: 'iframe_to_parent',
         message: 'Sucursal elegida',
         data: sucursal,
-	orderId: contextDataFromParent.orderId
+	orderId: contextDataFromParent?.orderId
     },
     '*'
 );
