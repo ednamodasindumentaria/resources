@@ -249,6 +249,15 @@
       guardarSeleccionBtn.addEventListener('click', () => {
         const sucursal = JSON.parse(sucursalDropdown.value);
         console.log('Sucursal guardada:', sucursal);
+	window.parent.postMessage(
+    {
+        id: 'iframe_to_parent',
+        message: 'Sucursal elegida',
+        data: sucursal,
+	orderId: contextDataFromParent.orderId
+    },
+    '*'
+);
         mainContainer.style.display = 'none';
         resultContainer.style.display = 'block';
       });
